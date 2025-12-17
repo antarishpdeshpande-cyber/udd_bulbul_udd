@@ -316,7 +316,7 @@ class Pillar {
 class GamePainter extends CustomPainter {
   final GameEngine gameEngine;
   
-  GamePainter({required this.gameEngine, required Listenable repaiint}) : super(repaint: repaiint);
+  GamePainter({required this.gameEngine, required Listenable repaint}) : super(repaint: repaint);
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -336,32 +336,92 @@ class GamePainter extends CustomPainter {
   }
 
   void _drawSkyAndBackground(Canvas canvas, Size size) {
-    // Sky Gradient (Light Blue -> White)
+    // Sky Gradient (Light Blue -> Lighter Blue)
     final Rect rect = Offset.zero & size;
     final Paint skyPaint = Paint()
       ..shader = const LinearGradient(
         begin: Alignment.topCenter,
         end: Alignment.bottomCenter,
-        colors: [Color(0xFF87CEEB), Colors.white],
+        colors: [Color(0xFF87CEEB), Color(0xFFE0F7FA)],
       ).createShader(rect);
     canvas.drawRect(rect, skyPaint);
 
-    // Taj Mahal Silhouette (Simple Shapes)
-    // Drawn near bottom
-    final paintSilhouette = Paint()..color = Colors.grey.withOpacity(0.3);
-    final baseY = size.height - 50; // Ground level
+    // Sun
+    final paintSun = Paint()..color = Colors.yellow;
+    canvas.drawCircle(Offset(size.width * 0.8, 80), 30, paintSun);
+
+    // Clouds (Simple white circles)
+    final paintCloud = Paint()..color = Colors.white.withOpacity(0.8);
+    canvas.drawCircle(Offset(size.width * 0.2, 100), 20, paintCloud);
+    canvas.drawCircle(Offset(size.width * 0.23, 90), 25, paintCloud);
+    canvas.drawCircle(Offset(size.width * 0.26, 100), 20, paintCloud);
+
+    // Taj Mahal Implementation
+    // Drawn centered at bottom
+    final paintTaj = Paint()..color = Colors.white;
+    final paintTajShadow = Paint()..color = Colors.grey[300]!;
     
-    // Dome
-    canvas.drawOval(Rect.fromCenter(center: Offset(size.width * 0.5, baseY - 80), width: 100, height: 100), paintSilhouette);
-    // Spire
-    canvas.drawRect(Rect.fromCenter(center: Offset(size.width * 0.5, baseY - 130), width: 10, height: 60), paintSilhouette);
+    final centerX = size.width / 2;
+    final bottomY = size.height - 50; // Ground line
+    
+    // Main Platform
+    canvas.drawRect(Rect.fromCenter(center: Offset(centerX, bottomY - 10), width: 300, height: 20), paintTaj);
+    
+    // Central Structure (Box)
+    canvas.drawRect(Rect.fromCenter(center: Offset(centerX, bottomY - 70), width: 140, height: 100), paintTaj);
+    
+    // Central Arch (Iwan)
+    final archPath = Path()
+      ..moveTo(centerX - 20, bottomY - 20)
+      ..lineTo(centerX - 20, bottomY - 80)
+      ..arcToPoint(Offset(centerX + 20, bottomY - 80), radius: const Radius.circular(20))
+      ..lineTo(centerX + 20, bottomY - 20)
+      ..close();
+    canvas.drawPath(archPath, paintTajShadow);
+
+    // Central Dome (Bulbous)
+    final domePath = Path()
+      ..moveTo(centerX - 40, bottomY - 120)
+      ..quadraticBezierTo(centerX - 50, bottomY - 150, centerX, bottomY - 180) // Left curve
+      ..quadraticBezierTo(centerX + 50, bottomY - 150, centerX + 40, bottomY - 120) // Right curve
+      ..close();
+    canvas.drawPath(domePath, paintTaj);
+    
+    // Finial (Spire on dome)
+    canvas.drawRect(Rect.fromCenter(center: Offset(centerX, bottomY - 180), width: 4, height: 20), Paint()..color = Colors.gold);
+
+    // Side Domes (Smaller)
+    void drawSideDome(double dx) {
+      canvas.drawRect(Rect.fromCenter(center: Offset(dx, bottomY - 120), width: 30, height: 30), paintTaj);
+       final smallDome = Path()
+        ..moveTo(dx - 15, bottomY - 135)
+        ..quadraticBezierTo(dx, bottomY - 155, dx + 15, bottomY - 135)
+        ..close();
+      canvas.drawPath(smallDome, paintTaj);
+    }
+    drawSideDome(centerX - 50);
+    drawSideDome(centerX + 50);
+
     // Minarets
-    canvas.drawRect(Rect.fromCenter(center: Offset(size.width * 0.3, baseY - 60), width: 20, height: 120), paintSilhouette);
-    canvas.drawRect(Rect.fromCenter(center: Offset(size.width * 0.7, baseY - 60), width: 20, height: 120), paintSilhouette);
-    
+    void drawMinaret(double dx) {
+       final minaretPath = Path()
+        ..moveTo(dx - 5, bottomY)
+        ..lineTo(dx - 3, bottomY - 150)
+        ..lineTo(dx + 3, bottomY - 150)
+        ..lineTo(dx + 5, bottomY)
+        ..close();
+       canvas.drawPath(minaretPath, paintTaj);
+       // Minaret dome
+       canvas.drawOval(Rect.fromCenter(center: Offset(dx, bottomY - 150), width: 10, height: 10), paintTaj);
+    }
+    drawMinaret(centerX - 120);
+    drawMinaret(centerX + 120);
+    drawMinaret(centerX - 80); // Inner minarets (perspective)
+    drawMinaret(centerX + 80);
+
     // Ground
     final paintGround = Paint()..color = const Color(0xFFDEB887); // Sand color
-    canvas.drawRect(Rect.fromLTWH(0, baseY, size.width, 50), paintGround);
+    canvas.drawRect(Rect.fromLTWH(0, bottomY, size.width, 50), paintGround);
   }
 
   void _drawPillars(Canvas canvas) {
@@ -392,47 +452,76 @@ class GamePainter extends CustomPainter {
     canvas.translate(GameEngine.birdX, gameEngine.birdY);
     canvas.rotate(gameEngine.birdRotation);
 
-    // Bulbul Visuals
-    // Reference: Brown body, black crest, red cheek, white belly
-    
-    // 1. Body (Brown Oval)
-    final paintBody = Paint()..color = const Color(0xFF8D6E63); // Brown
-    final bodyPath = Path()
-      ..addOval(Rect.fromCenter(center: Offset.zero, width: 40, height: 30));
-    canvas.drawPath(bodyPath, paintBody);
-    
-    // 2. White Belly (Bottom clip of oval)
-    final paintBelly = Paint()..color = Colors.white;
-    canvas.drawOval(Rect.fromCenter(center: const Offset(0, 5), width: 30, height: 20), paintBelly);
+    // Bulbul Visuals (Pycnonotus jocosus)
+    // Detailed drawing based on reference: Long tail, brown back, white belly, black crest, red whiskers.
 
-    // 3. Head (Black Circle + Crest)
-    final paintHead = Paint()..color = Colors.black;
-    canvas.drawCircle(const Offset(12, -8), 10, paintHead); // Head position forward-up
+    // 1. Tail (Long, tapered, extending back)
+    final paintTail = Paint()..color = const Color(0xFF5D4037); // Dark Brown
+    final tailPath = Path()
+      ..moveTo(-15, 5)  // Start at back of body
+      ..lineTo(-55, -5) // Tip of tail (upwards slightly)
+      ..lineTo(-55, 15) // Width of tail tip
+      ..lineTo(-15, 15) // Back to body
+      ..close();
+    canvas.drawPath(tailPath, paintTail);
+
+    // 2. Wings (Darker brown teardrop on side)
+    final paintWing = Paint()..color = const Color(0xFF4E342E);
+    final wingPath = Path()
+      ..moveTo(-10, -5)
+      ..quadraticBezierTo(20, 5, -5, 20) // Wing curve
+      ..close();
     
-    // Crest (Pointy triangle on top of head)
+    // 3. Body (Brown Oval Main)
+    final paintBody = Paint()..color = const Color(0xFF8D6E63); // Lighter Brown
+    final bodyPath = Path()
+      ..addOval(Rect.fromCenter(center: Offset.zero, width: 45, height: 32));
+    canvas.drawPath(bodyPath, paintBody); // Draw body
+
+    // 4. White Belly (Bottom clip)
+    final paintBelly = Paint()..color = Colors.white;
+    final bellyPath = Path()
+      ..moveTo(-20, 5)
+      ..quadraticBezierTo(0, 20, 25, 5)
+      ..lineTo(25, 10)
+      ..quadraticBezierTo(0, 28, -20, 10)
+      ..close();
+    canvas.drawPath(bellyPath, paintBelly);
+
+    // 5. Head (Black)
+    final paintHead = Paint()..color = Colors.black;
+    canvas.drawCircle(const Offset(18, -10), 11, paintHead); 
+
+    // 6. Crest (Sharp, pointing up/back)
     final crestPath = Path()
-      ..moveTo(8, -15)
-      ..lineTo(16, -28) // Pointy top
-      ..lineTo(20, -12)
+      ..moveTo(12, -18)
+      ..lineTo(20, -35) // High sharp point
+      ..lineTo(26, -15)
       ..close();
     canvas.drawPath(crestPath, paintHead);
 
-    // 4. Red Cheek (Whiskers)
-    final paintCheek = Paint()..color = Colors.red;
-    canvas.drawOval(Rect.fromCenter(center: const Offset(14, -6), width: 6, height: 4), paintCheek);
+    canvas.drawPath(wingPath, paintWing); // Draw wing over body
 
-    // 5. Beak
+    // 7. Red Vents/Whiskers
+    final paintRed = Paint()..color = Colors.red;
+    // Under tail coverts (Red patch under tail base)
+    canvas.drawOval(Rect.fromCenter(center: const Offset(-20, 15), width: 10, height: 6), paintRed);
+    // Cheek patch (Whisker)
+    canvas.drawOval(Rect.fromCenter(center: const Offset(20, -8), width: 5, height: 5), paintRed);
+
+    // 8. Beak
     final paintBeak = Paint()..color = Colors.black;
     final beakPath = Path()
-      ..moveTo(20, -8)
+      ..moveTo(28, -10)
+      ..lineTo(38, -8)
       ..lineTo(28, -6)
-      ..lineTo(20, -4)
       ..close();
     canvas.drawPath(beakPath, paintBeak);
-    
-    // 6. Eye
+
+    // 9. Eye
     final paintEye = Paint()..color = Colors.white;
-    canvas.drawCircle(const Offset(16, -10), 2, paintEye);
+    canvas.drawCircle(const Offset(22, -12), 2.5, paintEye);
+    canvas.drawCircle(const Offset(22.5, -12.5), 1, Paint()..color = Colors.black); // Pupil
 
     canvas.restore();
   }
