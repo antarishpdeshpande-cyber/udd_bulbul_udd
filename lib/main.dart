@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
+import 'package:flutter/services.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
@@ -47,6 +48,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
   late GameEngine gameEngine;
   late Ticker _ticker;
   double _lastTime = 0;
+  final FocusNode _focusNode = FocusNode();
 
   @override
   void initState() {
@@ -66,11 +68,17 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
 
     // Start loading high score
     gameEngine.loadHighScore();
+
+    // Request focus for keyboard support
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _focusNode.requestFocus();
+    });
   }
 
   @override
   void dispose() {
     _ticker.dispose();
+    _focusNode.dispose();
     super.dispose();
   }
 
@@ -88,11 +96,18 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: GestureDetector(
-        onTapDown: (_) => _handleTap(),
-        child: Stack(
-          children: [
-            // The Game Canvas (Repaints on every tick via ListenableBuilder)
+      body: KeyboardListener(
+        focusNode: _focusNode,
+        onKeyEvent: (event) {
+          if (event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.space) {
+            _handleTap();
+          }
+        },
+        child: GestureDetector(
+          onTapDown: (_) => _handleTap(),
+          child: Stack(
+            children: [
+              // The Game Canvas (Repaints on every tick via ListenableBuilder)
             SizedBox.expand(
               child: CustomPaint(
                 painter: GamePainter(gameEngine: gameEngine, repaint: gameEngine.notifier),
@@ -159,6 +174,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
               ),
           ],
         ),
+      ),
       ),
     );
   }
@@ -388,7 +404,7 @@ class GamePainter extends CustomPainter {
     canvas.drawPath(domePath, paintTaj);
     
     // Finial (Spire on dome)
-    canvas.drawRect(Rect.fromCenter(center: Offset(centerX, bottomY - 180), width: 4, height: 20), Paint()..color = Colors.gold);
+    canvas.drawRect(Rect.fromCenter(center: Offset(centerX, bottomY - 180), width: 4, height: 20), Paint()..color = Colors.amber);
 
     // Side Domes (Smaller)
     void drawSideDome(double dx) {
