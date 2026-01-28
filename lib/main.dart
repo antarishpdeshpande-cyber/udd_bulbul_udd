@@ -21,7 +21,7 @@ void main() async {
 }
 
 class UddBulbulUddApp extends StatelessWidget {
-  const UddBulbulUddApp({Key? key}) : super(key: key);
+  const UddBulbulUddApp({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -37,7 +37,7 @@ class UddBulbulUddApp extends StatelessWidget {
 }
 
 class GameScreen extends StatefulWidget {
-  const GameScreen({Key? key}) : super(key: key);
+  const GameScreen({super.key});
 
   @override
   State<GameScreen> createState() => _GameScreenState();
@@ -92,7 +92,19 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
         onTapDown: (_) => _handleTap(),
         child: Stack(
           children: [
-            // The Game Canvas (Repaints on every tick via ListenableBuilder)
+            // 1. Static Background (Cached)
+            // ⚡ Bolt Optimization: Use RepaintBoundary to cache complex static background.
+            // This prevents redrawing the Taj Mahal and sky on every frame (60fps),
+            // significantly reducing rasterization cost.
+            SizedBox.expand(
+              child: RepaintBoundary(
+                child: CustomPaint(
+                  painter: const StaticBackgroundPainter(),
+                ),
+              ),
+            ),
+
+            // 2. The Game Canvas (Repaints on every tick via ListenableBuilder)
             SizedBox.expand(
               child: CustomPaint(
                 painter: GamePainter(gameEngine: gameEngine, repaint: gameEngine.notifier),
@@ -323,7 +335,7 @@ class GamePainter extends CustomPainter {
     gameEngine.screenSize = size;
     final center = Offset(size.width / 2, size.height / 2);
     
-    _drawSkyAndBackground(canvas, size);
+    // Background is now handled by StaticBackgroundPainter
 
     // Translate to center for easier game coordinates (0,0 is center)
     canvas.save();
@@ -333,95 +345,6 @@ class GamePainter extends CustomPainter {
     _drawBird(canvas);
 
     canvas.restore();
-  }
-
-  void _drawSkyAndBackground(Canvas canvas, Size size) {
-    // Sky Gradient (Light Blue -> Lighter Blue)
-    final Rect rect = Offset.zero & size;
-    final Paint skyPaint = Paint()
-      ..shader = const LinearGradient(
-        begin: Alignment.topCenter,
-        end: Alignment.bottomCenter,
-        colors: [Color(0xFF87CEEB), Color(0xFFE0F7FA)],
-      ).createShader(rect);
-    canvas.drawRect(rect, skyPaint);
-
-    // Sun
-    final paintSun = Paint()..color = Colors.yellow;
-    canvas.drawCircle(Offset(size.width * 0.8, 80), 30, paintSun);
-
-    // Clouds (Simple white circles)
-    final paintCloud = Paint()..color = Colors.white.withOpacity(0.8);
-    canvas.drawCircle(Offset(size.width * 0.2, 100), 20, paintCloud);
-    canvas.drawCircle(Offset(size.width * 0.23, 90), 25, paintCloud);
-    canvas.drawCircle(Offset(size.width * 0.26, 100), 20, paintCloud);
-
-    // Taj Mahal Implementation
-    // Drawn centered at bottom
-    final paintTaj = Paint()..color = Colors.white;
-    final paintTajShadow = Paint()..color = Colors.grey[300]!;
-    
-    final centerX = size.width / 2;
-    final bottomY = size.height - 50; // Ground line
-    
-    // Main Platform
-    canvas.drawRect(Rect.fromCenter(center: Offset(centerX, bottomY - 10), width: 300, height: 20), paintTaj);
-    
-    // Central Structure (Box)
-    canvas.drawRect(Rect.fromCenter(center: Offset(centerX, bottomY - 70), width: 140, height: 100), paintTaj);
-    
-    // Central Arch (Iwan)
-    final archPath = Path()
-      ..moveTo(centerX - 20, bottomY - 20)
-      ..lineTo(centerX - 20, bottomY - 80)
-      ..arcToPoint(Offset(centerX + 20, bottomY - 80), radius: const Radius.circular(20))
-      ..lineTo(centerX + 20, bottomY - 20)
-      ..close();
-    canvas.drawPath(archPath, paintTajShadow);
-
-    // Central Dome (Bulbous)
-    final domePath = Path()
-      ..moveTo(centerX - 40, bottomY - 120)
-      ..quadraticBezierTo(centerX - 50, bottomY - 150, centerX, bottomY - 180) // Left curve
-      ..quadraticBezierTo(centerX + 50, bottomY - 150, centerX + 40, bottomY - 120) // Right curve
-      ..close();
-    canvas.drawPath(domePath, paintTaj);
-    
-    // Finial (Spire on dome)
-    canvas.drawRect(Rect.fromCenter(center: Offset(centerX, bottomY - 180), width: 4, height: 20), Paint()..color = Colors.gold);
-
-    // Side Domes (Smaller)
-    void drawSideDome(double dx) {
-      canvas.drawRect(Rect.fromCenter(center: Offset(dx, bottomY - 120), width: 30, height: 30), paintTaj);
-       final smallDome = Path()
-        ..moveTo(dx - 15, bottomY - 135)
-        ..quadraticBezierTo(dx, bottomY - 155, dx + 15, bottomY - 135)
-        ..close();
-      canvas.drawPath(smallDome, paintTaj);
-    }
-    drawSideDome(centerX - 50);
-    drawSideDome(centerX + 50);
-
-    // Minarets
-    void drawMinaret(double dx) {
-       final minaretPath = Path()
-        ..moveTo(dx - 5, bottomY)
-        ..lineTo(dx - 3, bottomY - 150)
-        ..lineTo(dx + 3, bottomY - 150)
-        ..lineTo(dx + 5, bottomY)
-        ..close();
-       canvas.drawPath(minaretPath, paintTaj);
-       // Minaret dome
-       canvas.drawOval(Rect.fromCenter(center: Offset(dx, bottomY - 150), width: 10, height: 10), paintTaj);
-    }
-    drawMinaret(centerX - 120);
-    drawMinaret(centerX + 120);
-    drawMinaret(centerX - 80); // Inner minarets (perspective)
-    drawMinaret(centerX + 80);
-
-    // Ground
-    final paintGround = Paint()..color = const Color(0xFFDEB887); // Sand color
-    canvas.drawRect(Rect.fromLTWH(0, bottomY, size.width, 50), paintGround);
   }
 
   void _drawPillars(Canvas canvas) {
@@ -528,4 +451,101 @@ class GamePainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
+}
+
+class StaticBackgroundPainter extends CustomPainter {
+  const StaticBackgroundPainter();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    // Sky Gradient (Light Blue -> Lighter Blue)
+    final Rect rect = Offset.zero & size;
+    final Paint skyPaint = Paint()
+      ..shader = const LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [Color(0xFF87CEEB), Color(0xFFE0F7FA)],
+      ).createShader(rect);
+    canvas.drawRect(rect, skyPaint);
+
+    // Sun
+    final paintSun = Paint()..color = Colors.yellow;
+    canvas.drawCircle(Offset(size.width * 0.8, 80), 30, paintSun);
+
+    // Clouds (Simple white circles)
+    final paintCloud = Paint()..color = Colors.white.withOpacity(0.8);
+    canvas.drawCircle(Offset(size.width * 0.2, 100), 20, paintCloud);
+    canvas.drawCircle(Offset(size.width * 0.23, 90), 25, paintCloud);
+    canvas.drawCircle(Offset(size.width * 0.26, 100), 20, paintCloud);
+
+    // Taj Mahal Implementation
+    // Drawn centered at bottom
+    final paintTaj = Paint()..color = Colors.white;
+    final paintTajShadow = Paint()..color = Colors.grey[300]!;
+
+    final centerX = size.width / 2;
+    final bottomY = size.height - 50; // Ground line
+
+    // Main Platform
+    canvas.drawRect(Rect.fromCenter(center: Offset(centerX, bottomY - 10), width: 300, height: 20), paintTaj);
+
+    // Central Structure (Box)
+    canvas.drawRect(Rect.fromCenter(center: Offset(centerX, bottomY - 70), width: 140, height: 100), paintTaj);
+
+    // Central Arch (Iwan)
+    final archPath = Path()
+      ..moveTo(centerX - 20, bottomY - 20)
+      ..lineTo(centerX - 20, bottomY - 80)
+      ..arcToPoint(Offset(centerX + 20, bottomY - 80), radius: const Radius.circular(20))
+      ..lineTo(centerX + 20, bottomY - 20)
+      ..close();
+    canvas.drawPath(archPath, paintTajShadow);
+
+    // Central Dome (Bulbous)
+    final domePath = Path()
+      ..moveTo(centerX - 40, bottomY - 120)
+      ..quadraticBezierTo(centerX - 50, bottomY - 150, centerX, bottomY - 180) // Left curve
+      ..quadraticBezierTo(centerX + 50, bottomY - 150, centerX + 40, bottomY - 120) // Right curve
+      ..close();
+    canvas.drawPath(domePath, paintTaj);
+
+    // Finial (Spire on dome)
+    canvas.drawRect(Rect.fromCenter(center: Offset(centerX, bottomY - 180), width: 4, height: 20), Paint()..color = const Color(0xFFFFD700));
+
+    // Side Domes (Smaller)
+    void drawSideDome(double dx) {
+      canvas.drawRect(Rect.fromCenter(center: Offset(dx, bottomY - 120), width: 30, height: 30), paintTaj);
+       final smallDome = Path()
+        ..moveTo(dx - 15, bottomY - 135)
+        ..quadraticBezierTo(dx, bottomY - 155, dx + 15, bottomY - 135)
+        ..close();
+      canvas.drawPath(smallDome, paintTaj);
+    }
+    drawSideDome(centerX - 50);
+    drawSideDome(centerX + 50);
+
+    // Minarets
+    void drawMinaret(double dx) {
+       final minaretPath = Path()
+        ..moveTo(dx - 5, bottomY)
+        ..lineTo(dx - 3, bottomY - 150)
+        ..lineTo(dx + 3, bottomY - 150)
+        ..lineTo(dx + 5, bottomY)
+        ..close();
+       canvas.drawPath(minaretPath, paintTaj);
+       // Minaret dome
+       canvas.drawOval(Rect.fromCenter(center: Offset(dx, bottomY - 150), width: 10, height: 10), paintTaj);
+    }
+    drawMinaret(centerX - 120);
+    drawMinaret(centerX + 120);
+    drawMinaret(centerX - 80); // Inner minarets (perspective)
+    drawMinaret(centerX + 80);
+
+    // Ground
+    final paintGround = Paint()..color = const Color(0xFFDEB887); // Sand color
+    canvas.drawRect(Rect.fromLTWH(0, bottomY, size.width, 50), paintGround);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
